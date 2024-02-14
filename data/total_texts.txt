@@ -1,0 +1,2 @@
+Texts in data in total: 1558306
+Total texts containing either AUROC keyword or AUPRC keyword or both: 16022
