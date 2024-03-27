@@ -1,11 +1,10 @@
 import json
-import openai
+from openai import OpenAI
 import time
 from tqdm import tqdm
 import pandas as pd
 from typing import List, Tuple
 import re
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
@@ -91,19 +90,14 @@ def extract_context_windows_df(df, text_column, compiled_regexes, window_size):
 
     return context_df
 
-
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import openai
-
-
 def process_with_gpt_with_retries(context_window, model, system_prompt, openai_api_key, max_retries=5):
+    client = OpenAI(api_key=openai_api_key)
     retry_delay = 0.5  # Reduced initial delay in seconds for retries
     max_retry_delay = 16  # Maximum delay, to avoid long waits
     for attempt in range(max_retries):
         try:
-            openai.api_key = openai_api_key  # Set the API key here
-            response = openai.ChatCompletion.create(
+            #openai.api_key = openai_api_key  # Set the API key here
+            response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -111,8 +105,8 @@ def process_with_gpt_with_retries(context_window, model, system_prompt, openai_a
                 ]
             )
             return response.choices[0].message.content
-        except openai.error.RateLimitError:
-            print(f"Rate limit reached, retrying in {retry_delay} seconds...")
+        except openai.RateLimitError:
+            print(f"Rate limit reached, retrying in {retry_delay}")
             time.sleep(retry_delay)
             retry_delay = min(retry_delay * 2, max_retry_delay)  # Exponential backoff with max limit
         except Exception as e:
@@ -123,7 +117,7 @@ def process_with_gpt_with_retries(context_window, model, system_prompt, openai_a
             retry_delay = min(retry_delay * 2, max_retry_delay)  # Exponential backoff with max limit
     return "Error: Max retries exceeded."
 
-def process_all_context_windows(new_df, model, system_prompt, openai_api_key, texts_before_pause=1000, pause_duration=5, max_workers= 6):
+def process_all_context_windows(new_df, model, system_prompt, openai_api_key, texts_before_pause=1000, pause_duration=5, max_workers= 1):
     responses = {}
     processed_texts = 0
     with ThreadPoolExecutor(max_workers=max_workers) as executor:  # Adjust max_workers based on your environment
